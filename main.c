@@ -5,12 +5,12 @@
 #include <wiringPi.h>
 #include <wiringSerial.h>
 #include <unistd.h>
+#include <ctype.h>
 // for daemon
 #include <signal.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <syslog.h>
-
 
 #include "yyjson.h" //for json lib
 /* MQTT Header Start */
@@ -49,8 +49,7 @@ static void Delayms(uint16_t ucMs);
 MQTTClient client;
 MQTTClient_deliveryToken token;
 
-//#define MQTT_TRACE
-
+// #define MQTT_TRACE
 
 // send mqtt data; the highest level
 int mqtt_send_data(char *payload, MQTTClient_connectOptions *pConn_opts, MQTTClient_message *pPubmsg, char *mqttTopic)
@@ -62,35 +61,34 @@ int mqtt_send_data(char *payload, MQTTClient_connectOptions *pConn_opts, MQTTCli
 	pPubmsg->retained = 0;
 	if ((rc = MQTTClient_publishMessage(client, mqttTopic, pPubmsg, &token)) != MQTTCLIENT_SUCCESS)
 	{
-#ifdef MQTT_TRACE		
-		syslog (LOG_ERR,"Failed to publish message, return code %d\n", rc);
-#endif	
-		//try to reconnect
+#ifdef MQTT_TRACE
+		syslog(LOG_ERR, "Failed to publish message, return code %d\n", rc);
+#endif
+		// try to reconnect
 		pConn_opts->keepAliveInterval = 200;
 		pConn_opts->cleansession = 1;
 		if ((rc = MQTTClient_connect(client, pConn_opts)) != MQTTCLIENT_SUCCESS)
 		{
-#ifdef MQTT_TRACE			
-			syslog (LOG_ERR,"Failed to connect, return code %d\n", rc);
-#endif		
+#ifdef MQTT_TRACE
+			syslog(LOG_ERR, "Failed to connect, return code %d\n", rc);
+#endif
 			return rc;
 		}
-		else 
+		else
 		{
 			return -99;
 		}
 	}
 #ifdef MQTT_TRACE
-	syslog (LOG_INFO,"Waiting for up to %d seconds for publication of %s\n"
-		   "on topic %s for client with ClientID: %s\n",
+	syslog(LOG_INFO, "Waiting for up to %d seconds for publication of %s\n"
+					 "on topic %s for client with ClientID: %s\n",
 		   (int)(TIMEOUT / 1000), PAYLOAD, TOPIC, CLIENTID);
 #endif
 	rc = MQTTClient_waitForCompletion(client, token, TIMEOUT);
 
-
-#ifdef MQTT_TRACE	
-	syslog (LOG_INFO,"Message with delivery token %d delivered\n", token);
-#endif	
+#ifdef MQTT_TRACE
+	syslog(LOG_INFO, "Message with delivery token %d delivered\n", token);
+#endif
 	/*
 	if ((rc = MQTTClient_disconnect(client, 10000)) != MQTTCLIENT_SUCCESS)
 		printf("Failed to disconnect, return code %d\n", rc);*/
@@ -102,91 +100,176 @@ int mqtt_send_data(char *payload, MQTTClient_connectOptions *pConn_opts, MQTTCli
 
 /* Daemon code start */
 static void daemonize()
-{    /* Open the log file */
-    openlog ("IotMonitor", LOG_PID, LOG_DAEMON);
+{ /* Open the log file */
+	openlog("IotMonitor", LOG_PID, LOG_DAEMON);
 }
 /* Daemon code end */
 
-
 // 函数用于检查IPv4地址的合法性
-int isValidIPv4(const char *ip) 
+int isValidIPv4(const char *ip)
 {
-    int segments[4]; // 存储四组数字
-    int count = 0;    // 用于计数点（.）出现的次数
-    int current = 0;  // 当前数字的开始位置
-    int inSegment = 0; // 是否在一组数字中
+	int segments[4];   // 存储四组数字
+	int count = 0;	   // 用于计数点（.）出现的次数
+	int current = 0;   // 当前数字的开始位置
+	int inSegment = 0; // 是否在一组数字中
 
-    // 遍历IP地址字符串
-    for (int i = 0; ip[i] != '\0'; ++i) {
-        if (ip[i] == '.') {
-            // 如果当前数字的开始位置是0，说明在点之前没有数字
-            if (current == 0) return 0;
-            // 如果已经有三个点，说明IP地址格式不正确
-            if (count == 3) return 0;
-            // 将当前数字转换为整数并存储
-            segments[current] = atoi(&ip[current]);
-            // 检查数字是否在0到255之间
-            if (segments[current] < 0 || segments[current] > 255) return 0;
-            // 更新当前数字的开始位置和点的计数
-            current = i + 1;
-            count++;
-        } else if (ip[i] >= '0' && ip[i] <= '9') {
-            // 如果字符是数字，继续当前数字
-            inSegment = 1;
-        } else {
-            // 如果字符不是数字也不是点，IP地址格式不正确
-            return 0;
-        }
-    }
-    // 检查最后一个数字
-    if (inSegment == 0 || current == 0) return 0; // 如果最后一个字符不是数字或没有数字
-    segments[current] = atoi(&ip[current]);
-    if (segments[current] < 0 || segments[current] > 255) return 0;
-    // 如果点的数量是3，并且有四组数字，IP地址合法
-    return (count == 3);
+	// 遍历IP地址字符串
+	for (int i = 0; ip[i] != '\0'; ++i)
+	{
+		if (ip[i] == '.')
+		{
+			// 如果当前数字的开始位置是0，说明在点之前没有数字
+			if (current == 0)
+				return 0;
+			// 如果已经有三个点，说明IP地址格式不正确
+			if (count == 3)
+				return 0;
+			// 将当前数字转换为整数并存储
+			segments[current] = atoi(&ip[current]);
+			// 检查数字是否在0到255之间
+			if (segments[current] < 0 || segments[current] > 255)
+				return 0;
+			// 更新当前数字的开始位置和点的计数
+			current = i + 1;
+			count++;
+		}
+		else if (ip[i] >= '0' && ip[i] <= '9')
+		{
+			// 如果字符是数字，继续当前数字
+			inSegment = 1;
+		}
+		else
+		{
+			// 如果字符不是数字也不是点，IP地址格式不正确
+			return 0;
+		}
+	}
+	// 检查最后一个数字
+	if (inSegment == 0 || current == 0)
+		return 0; // 如果最后一个字符不是数字或没有数字
+	segments[current] = atoi(&ip[current]);
+	if (segments[current] < 0 || segments[current] > 255)
+		return 0;
+	// 如果点的数量是3，并且有四组数字，IP地址合法
+	return (count == 3);
 }
 
-int isValidPort(const char *portStr) {
-    // 检查字符串是否为空
-    if (portStr == NULL) {
-        return 0; // 不合法
-    }
+// 函数定义
+int isValidIpAddress(char *ipAddress)
+{
+	int num, dots = 0;
+	char *ptr;
 
-    // 尝试将字符串转换为整数
-    unsigned int port = (unsigned int)atoi(portStr);
+	if (ipAddress == NULL)
+		return 0;
 
-    // 检查转换后的整数是否在端口号的有效范围内
-    if (port >= 0 && port <= 65535) {
-        return 1; // 合法
-    }
+	ptr = strtok(ipAddress, ".");
 
-    return 0; // 不合法
+	if (ptr == NULL)
+		return 0;
+
+	while (ptr)
+	{
+		// 检查是否每部分都是数字
+		if (!isdigit(*ptr))
+			return 0;
+
+		// 将字符串转换为数字
+		num = atoi(ptr);
+
+		// 检查数字是否在0到255之间
+		if (num >= 0 && num <= 255)
+		{
+			// 找到下一个点分隔的数字
+			ptr = strtok(NULL, ".");
+			if (ptr != NULL)
+				dots++;
+		}
+		else
+			return 0;
+	}
+	// 如果地址有3个点（即4部分），则为有效IP
+	if (dots != 3)
+		return 0;
+
+	return 1;
+}
+
+bool isValidIpAddress2(char *ipAddress)
+{
+	int len = strlen(ipAddress);
+	if (len < 7 || len > 15)
+	{
+		return false;
+	}
+	char *token = strtok(ipAddress, ".");
+	int num;
+	while (token != NULL)
+	{
+		if (strlen(token) > 3)
+		{
+			return false;
+		}
+		num = atoi(token);
+		if (num < 0 || num > 255)
+		{
+			return false;
+		}
+		if (strlen(token) > 1 && token[0] == '0')
+		{
+			return false;
+		}
+		token = strtok(NULL, ".");
+	}
+	return true;
+}
+
+int isValidPort(const char *portStr)
+{
+	// 检查字符串是否为空
+	if (portStr == NULL)
+	{
+		return 0; // 不合法
+	}
+
+	// 尝试将字符串转换为整数
+	unsigned int port = (unsigned int)atoi(portStr);
+
+	// 检查转换后的整数是否在端口号的有效范围内
+	if (port >= 0 && port <= 65535)
+	{
+		return 1; // 合法
+	}
+
+	return 0; // 不合法
 }
 
 #define MAX_LENGTH 150
 
 int main(int argc, char *argv[])
 {
-	if (argc != 5)
+	if (argc != 7)
 	{
-		syslog(LOG_ERR, "Usage: %s <device name> <mqtt ip address> <mqtt port number> <mqtt broker>\n", argv[0]);
+		syslog(LOG_ERR, "Usage: %s <device name> <mqtt ip address> <mqtt port number> <mqtt broker> username password\n", argv[0]);
 		return EXIT_FAILURE;
 	}
 
-	if (isValidIPv4(argv[2]) == 0) 
-	{
-		syslog(LOG_ERR, "IP Address %s is not valid, please input valid IPv4 address.\n", argv[3]);
-	}
+	// if (isValidIpAddress2(argv[2]) == 0)
+	// {
+	// 	syslog(LOG_ERR, "IP Address %s is not valid, please input valid IPv4 address.\n", argv[2]);
+	// 	return EXIT_FAILURE;
+	// }
 
 	if (isValidPort(argv[3]) == 0)
 	{
-		syslog(LOG_ERR, "Port %s is not valid, please input valid port.\n", argv[4]);
+		syslog(LOG_ERR, "Port %s is not valid, please input valid port.\n", argv[3]);
+		return EXIT_FAILURE;
 	}
 
 	char ip_info[MAX_LENGTH] = "";
 	char mqtt_topic[MAX_LENGTH] = "";
 
-	sprintf(ip_info, "tcp://%s:%s",  argv[2], argv[3]);
+	sprintf(ip_info, "tcp://%s:%s", argv[2], argv[3]);
 	sprintf(mqtt_topic, "%s", argv[4]);
 	daemonize();
 
@@ -196,21 +279,20 @@ int main(int argc, char *argv[])
 	int rc;
 	if ((rc = MQTTClient_create(&client, ip_info, CLIENTID, MQTTCLIENT_PERSISTENCE_NONE, NULL)) != MQTTCLIENT_SUCCESS)
 	{
-#ifdef MQTT_TRACE		
-		syslog (LOG_ERR,"Failed to create client, return code %d\n", rc);
+#ifdef MQTT_TRACE
+		syslog(LOG_ERR, "Failed to create client, return code %d\n", rc);
 #endif
 		return -1;
 	}
 
-
 	if ((fd = serial_open(argv[1], s_iCurBaud) < 0))
 	{
-		syslog (LOG_ERR,"open %s fail\n", argv[1]);
+		syslog(LOG_ERR, "open %s fail\n", argv[1]);
 		return 0;
 	}
-#ifdef MQTT_TRACE	
+#ifdef MQTT_TRACE
 	else
-		syslog (LOG_INFO,"open %s success\n", argv[1]);
+		syslog(LOG_INFO, "open %s success\n", argv[1]);
 #endif
 
 	// Create parameters for registers
@@ -222,18 +304,19 @@ int main(int argc, char *argv[])
 	WitInit(WIT_PROTOCOL_MODBUS, 0xff);
 	WitRegisterCallBack(SensorDataUpdata);
 	WitSerialWriteRegister(SensorUartSend);
-	syslog (LOG_INFO,"\r\n********************** wit-motion Modbus check  ************************\r\n");
+	syslog(LOG_INFO, "\r\n********************** wit-motion Modbus check  ************************\r\n");
 	AutoScanSensor(argv[1]);
-	syslog (LOG_INFO,"\r\n********************** wit-motion Modbus check end  ************************\r\n");
+	syslog(LOG_INFO, "\r\n********************** wit-motion Modbus check end  ************************\r\n");
 
 	conn_opts.keepAliveInterval = 200;
 	conn_opts.cleansession = 1;
-	
+   	conn_opts.username = argv[5];
+    conn_opts.password = argv[6];
 	if ((rc = MQTTClient_connect(client, &conn_opts)) != MQTTCLIENT_SUCCESS)
 	{
-#ifdef MQTT_TRACE			
-		syslog (LOG_ERR,"Failed to connect, return code %d\n", rc);
-#endif		
+#ifdef MQTT_TRACE
+		syslog(LOG_ERR, "Failed to connect, return code %d\n", rc);
+#endif
 		return -1;
 	}
 
@@ -258,11 +341,11 @@ int main(int argc, char *argv[])
 			{
 				fAcc[i] = sReg[AX + i] / 32768.0f * 16.0f;
 				fGyro[i] = sReg[GX + i] / 32768.0f * 2000.0f;
-				//syslog(LOG_INFO, "Debug: Sensor %d : %f\n", i, sReg[HX + i] / 32768.0f * 16.0f );
+				// syslog(LOG_INFO, "Debug: Sensor %d : %f\n", i, sReg[HX + i] / 32768.0f * 16.0f );
 				fAngle[i] = sReg[Roll + i] / 32768.0f * 180.0f;
-				//syslog(LOG_INFO, "Debug: Sensor %d : %f\n", i, sReg[TEMP]);
+				// syslog(LOG_INFO, "Debug: Sensor %d : %f\n", i, sReg[TEMP]);
 			}
-			
+
 			if (s_cDataUpdate & ACC_UPDATE)
 			{
 				yyjson_mut_val *acc = yyjson_mut_arr(doc);
@@ -312,7 +395,7 @@ int main(int argc, char *argv[])
 				yyjson_mut_obj_add_val(doc, root, "mag", mag);
 				s_cDataUpdate &= ~MAG_UPDATE;
 			}
-			
+
 			const char *json = yyjson_mut_write(doc, 0, NULL);
 			if (json)
 			{
@@ -420,12 +503,12 @@ static void AutoScanSensor(char *dev)
 
 			if (s_cDataUpdate != 0)
 			{
-				syslog (LOG_INFO,"%d baud find sensor\r\n\r\n", c_uiBaud[i]);
+				syslog(LOG_INFO, "%d baud find sensor\r\n\r\n", c_uiBaud[i]);
 				return;
 			}
 			iRetry--;
 		} while (iRetry);
 	}
-	syslog (LOG_ERR,"can not find sensor\r\n");
-	syslog (LOG_INFO,"please check your connection\r\n");
+	syslog(LOG_ERR, "can not find sensor\r\n");
+	syslog(LOG_INFO, "please check your connection\r\n");
 }
