@@ -11,7 +11,7 @@ cp iotMonitor /usr/bin/iotmonitor
 chmod +x /usr/bin/iotmonitor
 
 # 复制libpaho-mqtt库到/usr/local/lib目录
-cp ./lib/libpaho-mqtt* /usr/local/lib/
+cp ./lib/libpaho-mqtt3c.so.1.3.13 /usr/local/lib/
 # ln -s /usr/local/lib/libpaho-mqtt3as.so.1.3.13  /usr/local/lib/libpaho-mqtt3as.so.1
 # ln -s /usr/local/lib/libpaho-mqtt3as.so.1 /usr/local/lib/libpaho-mqtt3as.so
 
@@ -25,10 +25,14 @@ ln -s /usr/local/lib/libpaho-mqtt3c.so.1 /usr/local/lib/libpaho-mqtt3c.so
 # ln -s /usr/local/lib/libpaho-mqtt3a.so.1 /usr/local/lib/libpaho-mqtt3a.so
 
 # 复制libwiringPi库到/lib目录
-cp ./lib/libwiringPi* /lib/
+cp ./lib/libwiringPiDev.so.3.2 /lib/
+cp ./lib/libwiringPi.so.3.2 /lib/
 
-ln -s /lib/libwiringPiDev.so.2.52 /lib/libwiringPiDev.so
-ln -s /lib/libwiringPi.so.2.52 /lib/libwiringPi.so
+ln -s /lib/libwiringPiDev.so.3.2 /lib/libwiringPiDev.so
+ln -s /lib/libwiringPi.so.3.2 /lib/libwiringPi.so
+
+#reload library system
+ldd ./iotMonitor
 
 # 确保复制操作成功
 if [ $? -eq 0 ]; then
